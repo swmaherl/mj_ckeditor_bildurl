@@ -1,0 +1,97 @@
+<?php
+/**
+ * @file
+ * Simplifies the core editor image dialog without replacing the editor.
+ */
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function mj_ckeditor_bildurl_form_filter_format_editor_image_form_alter(&$form, &$form_state) {
+  if (!isset($form['image']['src'], $form['image']['fid'])) {
+    return;
+  }
+  $upload_allowed = !empty($form['image']['fid']['#access']);
+  if (!$upload_allowed && empty($form['image']['src']['#default_value']) && !empty($form_state['input']['editor_object']['src'])) {
+    $form['image']['src']['#default_value'] = $form_state['input']['editor_object']['src'];
+  }
+  $mode = (!$upload_allowed || !empty($form['image']['src']['#default_value'])) ? 'url' : 'upload';
+  $options = array();
+  if ($upload_allowed) {
+    $options['upload'] = t('Bild hochladen');
+  }
+  $options['url'] = t('Bild per URL einfügen');
+  $form['mj_bildquelle'] = array(
+    '#type' => 'radios',
+    '#title' => t('Wie möchtest Du das Bild einfügen?'),
+    '#options' => $options,
+    '#default_value' => $mode,
+    '#weight' => -100,
+  );
+
+  // Prevent core JS from creating its own toggles and opening the library.
+  foreach (array('fid', 'src') as $key) {
+    unset($form['image'][$key]['#wrapper_attributes']['data-editor-image-toggle']);
+  }
+  unset($form['library_open']);
+  $form['image']['fid']['#title'] = t('Bild vom Gerät auswählen');
+  $form['image']['fid']['#states']['visible'] = array(
+    ':input[name="mj_bildquelle"]' => array('value' => 'upload'),
+  );
+  $form['image']['src']['#title'] = t('Bildadresse (URL)');
+  $form['image']['src']['#placeholder'] = 'https://example.org/bild.jpg';
+  $form['image']['src']['#description'] = t('Füge die direkte Internetadresse des Bildes ein. Das Bild bleibt auf der ursprünglichen Website.');
+  $form['image']['src']['#element_validate'] = array('mj_ckeditor_bildurl_validate_url');
+  $form['image']['src']['#states']['visible'] = array(
+    ':input[name="mj_bildquelle"]' => array('value' => 'url'),
+  );
+  if (isset($form['image_style'])) {
+    $form['image_style']['#states']['visible'] = array(
+      ':input[name="mj_bildquelle"]' => array('value' => 'upload'),
+    );
+  }
+  $form['#attributes']['class'][] = 'mj-ckeditor-bildurl';
+  $form['#attached']['css'][] = backdrop_get_path('module', 'mj_ckeditor_bildurl') . '/mj_ckeditor_bildurl.css';
+  $form['#validate'][] = 'mj_ckeditor_bildurl_validate';
+  // Preserve the core submit handler, including on AJAX rebuilds.
+  if (empty($form['#submit'])) {
+    $form['#submit'] = array('filter_format_editor_image_form_submit');
+  }
+}
+
+/**
+ * Validates only the active source, before the core submit handler runs.
+ */
+function mj_ckeditor_bildurl_validate_url(&$element, &$form_state) {
+  if (isset($form_state['values']['mj_bildquelle']) && $form_state['values']['mj_bildquelle'] === 'upload') {
+    form_set_value($element, '', $form_state);
+    return;
+  }
+  $url = trim($element['#value']);
+  form_set_value($element, $url, $form_state);
+  // Preserve existing relative image paths when editing old content.
+  $relative = preg_match('@^/(?!/)@', $url) && valid_url($url, FALSE);
+  $http = preg_match('@^https?://@i', $url) && valid_url($url, TRUE);
+  if (!$relative && !$http) {
+    form_error($element, t('Bitte gib eine vollständige Bildadresse mit https:// ein.'));
+  }
+}
+
+/**
+ * Normalizes source selection and prevents fallback to an old upload.
+ */
+function mj_ckeditor_bildurl_validate($form, &$form_state) {
+  $mode = isset($form_state['values']['mj_bildquelle']) ? $form_state['values']['mj_bildquelle'] : 'url';
+  if ($mode === 'url') {
+    $form_state['values']['fid'] = 0;
+    $form_state['values']['image_style'] = '';
+    // Explicitly clear a managed-file association when replacing a local image.
+    $form_state['values']['attributes']['data-file-id'] = '';
+  }
+  elseif (empty($form['image']['fid']['#access'])) {
+    form_set_error('mj_bildquelle', t('Das Hochladen von Bildern ist hier nicht erlaubt.'));
+  }
+  elseif (empty($form_state['values']['fid'])) {
+    form_set_error('fid', t('Bitte lade zuerst ein Bild hoch oder wähle „Bild per URL einfügen“.'));
+  }
+}
