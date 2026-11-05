@@ -3,6 +3,6 @@ description = Einfacher Bilddialog mit Upload oder Bildadresse, ohne Bildbibliot
 package = MJH
 type = module
 backdrop = 1.x
-version = 1.x-1.0.0-alpha2
+version = 1.x-1.0.0-alpha3
 dependencies[] = filter
 

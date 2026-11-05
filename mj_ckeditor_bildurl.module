@@ -95,3 +95,35 @@ function mj_ckeditor_bildurl_validate($form, &$form_state) {
     form_set_error('fid', t('Bitte lade zuerst ein Bild hoch oder wähle „Bild per URL einfügen“.'));
   }
 }
+
+/**
+ * Implements hook_library_info().
+ */
+function mj_ckeditor_bildurl_library_info() {
+  $path = backdrop_get_path('module', 'mj_ckeditor_bildurl');
+  return array(
+    'toolbar_admin_fix' => array(
+      'title' => 'CKEditor 5 active-filter toolbar correction',
+      'version' => '1.x-1.0.0-alpha3',
+      'js' => array($path . '/js/toolbar-admin.js' => array()),
+      // Load after these definitions, but before attachBehaviors() runs.
+      // Dependencies also establish this order with JS aggregation enabled.
+      'dependencies' => array(
+        array('filter', 'filter.admin'),
+        array('filter', 'filter.filtered_html.admin'),
+        array('ckeditor5', 'backdrop.ckeditor5.admin'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function mj_ckeditor_bildurl_form_filter_admin_format_form_alter(&$form, &$form_state) {
+  $editor_info = isset($form_state['editor_info']) ? $form_state['editor_info'] : NULL;
+  if ($editor_info && $editor_info['module'] === 'ckeditor5' && isset($form['editor_settings'])) {
+    // Attach to the AJAX-replaced subtree, not just the outer form.
+    $form['editor_settings']['#attached']['library'][] = array('mj_ckeditor_bildurl', 'toolbar_admin_fix');
+  }
+}
