@@ -104,10 +104,17 @@ function mj_ckeditor_bildurl_library_info() {
   return array(
     'toolbar_admin_fix' => array(
       'title' => 'CKEditor 5 active-filter toolbar correction',
-      'version' => '1.x-1.0.0-alpha3',
-      'js' => array($path . '/js/toolbar-admin.js' => array()),
+      'version' => '1.x-1.0.0-alpha4',
+      'js' => array(
+        $path . '/js/toolbar-admin.js' => array(
+          'group' => JS_THEME,
+          'weight' => 10,
+          'aggregate' => FALSE,
+        ),
+      ),
       // Load after these definitions, but before attachBehaviors() runs.
-      // Dependencies also establish this order with JS aggregation enabled.
+      // Core filter admin scripts use JS_THEME. Dependencies alone do not
+      // override the group sort order; run in that group at a later weight.
       'dependencies' => array(
         array('filter', 'filter.admin'),
         array('filter', 'filter.filtered_html.admin'),

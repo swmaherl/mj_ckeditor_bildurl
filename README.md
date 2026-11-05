@@ -1,6 +1,6 @@
 # MJ CKEditor Bild-URL
 
-Version: 1.x-1.0.0-alpha3 — Testversion für Backdrop 1.35.2.
+Version: 1.x-1.0.0-alpha4 — Testversion für Backdrop 1.35.2.
 
 Erweitert den vorhandenen Bilddialog um zwei gut sichtbare Auswahlmöglichkeiten:
 „Bild hochladen“ und „Bild per URL einfügen“. Die Bildbibliothek wird aus diesem
@@ -30,8 +30,8 @@ noch nicht bestätigt.
 
 Das zusätzliche JavaScript wird nur an den CKEditor-5-Einstellungsbereich im
 Textformat-Konfigurationsformular angehängt, auch beim Editorwechsel per AJAX.
-Bibliotheksabhängigkeiten laden es nach den Core-Definitionen und vor den
-Behaviors. Die Button-Normalisierung erfolgt synchron nach Erzeugung der Toolbar
+Bibliotheksabhängigkeiten und die explizite Gruppe JS_THEME mit Gewicht 10
+laden es nach den Core-Definitionen und vor den Behaviors. Die Button-Normalisierung erfolgt synchron nach Erzeugung der Toolbar
 und vor deren zeitversetzter initialer Prüfung. Keine kopierte Core-JS-Datei,
 keine zusätzlichen Event-Handler und keine automatische Konfigurationsmigration.
 
@@ -104,7 +104,7 @@ Lizenz: GPL-2.0-or-later.
 
 ## Tatsächlich durchgeführte Prüfungen
 
-- 17 automatisierte DOM-Regressionstests mit jsdom und jQuery 3.7.1 gegen die
+- 18 automatisierte DOM-Regressionstests mit jsdom und jQuery 3.7.1 gegen die
   unveränderten filter.admin.js, filter.filtered_html.admin.js und
   ckeditor5.admin.js aus Backdrop 1.35.2: bestanden.
 - Fehler im unveränderten Core reproduziert; deaktivierte/aktive Filter,
@@ -133,3 +133,21 @@ NODE_PATH=/tmp/mj-toolbar-tests/node_modules node tests/toolbar-admin.test.cjs /
 
 Die drei Core-Dateien liegen im Backdrop-Repository unter core/modules/filter/js/
 bzw. core/modules/ckeditor5/js/. Sie werden nicht mit diesem Modul ausgeliefert.
+
+## Korrektur in alpha4
+
+Die Filter-Verwaltung wird vom Core mit group = JS_THEME und aggregate = FALSE
+geladen. Die Bibliotheksabhängigkeiten in alpha3 allein reichten nicht aus:
+Das Zusatzskript konnte in der früheren Standardgruppe ausgeführt werden und
+wegen noch fehlender Filter-Funktionen abbrechen.
+
+Alpha4 lädt das Zusatzskript ebenfalls in JS_THEME, mit Gewicht 10 und ohne
+Aggregation. Es läuft damit nach den Filter-Definitionen, bevor Backdrop die
+Behaviors anhängt. Die allgemeine JavaScript-Zusammenfassung darf aktiv bleiben.
+Die bisherigen Tests hatten diese Gruppensortierung nicht nachgebildet. Ein
+zusätzlicher Test reproduziert den Ausfall bei der alten Reihenfolge und prüft
+die korrigierte Reihenfolge sowie die PHP-Ladeoptionen.
+
+Nach dem Ersetzen alle Backdrop-Caches leeren und die Konfigurationsseite neu
+laden. Bereits entfernte Buttons erneut hinzufügen, speichern und wieder öffnen.
+Ein vollständiger Live-Test bleibt erforderlich.

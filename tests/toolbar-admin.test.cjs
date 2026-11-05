@@ -15,7 +15,7 @@ const core = ['filter.admin.js', 'filter.filtered_html.admin.js', 'ckeditor5.adm
 const fix = fs.readFileSync(path.join(__dirname, '../js/toolbar-admin.js'), 'utf8');
 let checks = 0;
 function check(name, run) { run(); checks++; console.log('PASS ' + name); }
-function env({ enabled = false, fixEnabled = true, doubled = false, aggregate = false, allowed = '<p> <img> <strong> <em>', names = ['fontColor', 'alignment:right', 'backdropImage'] } = {}) {
+function env({ enabled = false, fixEnabled = true, doubled = false, aggregate = false, loadOrder = 'default', allowed = '<p> <img> <strong> <em>', names = ['fontColor', 'alignment:right', 'backdropImage'] } = {}) {
   const dom = new JSDOM('<form id="filter-admin-format-form"><div id="filter-order"><input class="form-checkbox" type="checkbox" name="filters[filter_html][status]"></div><input id="allowed-html"><div id="editor-settings-wrapper" class="ckeditor5-toolbar-configuration"><div class="form-item-editor-settings-toolbar"><textarea></textarea></div></div></form>', { runScripts: 'outside-only' });
   const w = dom.window, $ = jquery(w), timers = [], features = {};
   w.jQuery = $;
@@ -35,7 +35,9 @@ function env({ enabled = false, fixEnabled = true, doubled = false, aggregate = 
   names.forEach(name => toolbar.find('ul').first().append($('<li class="ckeditor5-button" tabindex="0">').attr('data-button-name', name).attr('data-required-html', requirement(defs[name]))));
   const settings = { ckeditor5: { toolbarAdmin: $('<div>').append(toolbar).html() } };
   $('textarea').val(JSON.stringify(names));
-  const scripts = core.concat(fixEnabled ? [fix] : []);
+  let scripts = core.concat(fixEnabled ? [fix] : []);
+  if (loadOrder === 'alpha3-groups') scripts = [core[2], fix, core[0], core[1]];
+  if (loadOrder === 'alpha4-groups') scripts = [core[2], core[0], core[1], fix];
   if (aggregate) w.eval(scripts.join('\n;\n')); else scripts.forEach(s => w.eval(s));
   const B = w.Backdrop;
   $(w.document).on('backdropEditorFeatureInit.test', (e, feature) => { features[feature.name] = feature; });
@@ -130,5 +132,21 @@ check('Optional double-escaped requirements are normalized as well', () => {
 check('Outside CKEditor 5 configuration, original rule collection is used', () => {
   const e = env(); e.attach(); e.flush(); e.$('.ckeditor5-toolbar-configuration').remove();
   assert.ok(e.B.filterConfiguration.getCombinedFilterRules().properties['*']); e.close();
+});
+check('Alpha3 group ordering reproduces an unloaded fix; alpha4 ordering fixes it', () => {
+  const old = env({ loadOrder: 'alpha3-groups', doubled: true }); old.attach(); old.flush();
+  assert.equal(old.B.behaviors.ckeditor5Admin.mjBildurlToolbarFix, undefined);
+  assert.ok(!old.active().includes('fontColor'));
+  assert.ok(!old.active().includes('alignment:right'));
+  old.close();
+  const corrected = env({ loadOrder: 'alpha4-groups', doubled: true }); corrected.attach(); corrected.flush();
+  assert.equal(corrected.B.behaviors.ckeditor5Admin.mjBildurlToolbarFix, true);
+  assert.deepEqual(corrected.active(), ['fontColor', 'alignment:right', 'backdropImage']);
+  corrected.close();
+  const php = fs.readFileSync(path.join(__dirname, '../mj_ckeditor_bildurl.module'), 'utf8');
+  const library = php.slice(php.indexOf('function mj_ckeditor_bildurl_library_info'));
+  assert.match(library, /'group' => JS_THEME/);
+  assert.match(library, /'weight' => 10/);
+  assert.match(library, /'aggregate' => FALSE/);
 });
 console.log(`${checks} checks passed. No live Backdrop/PHP integration test performed.`);
